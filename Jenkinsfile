@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         TF_DIR = 'iac'
-        AWS_REGION = 'us-east-1'
-        TF_VAR_vpc_name = 'acit-vpc'
+        AWS_REGION = 'us-east-2'
+        TF_VAR_vpc_name = 'acit-sand-vpc'
     }
 
     stages {
@@ -27,7 +27,7 @@ pipeline {
                     mkdir -p ${TF_DIR}
                     cat > ${TF_DIR}/main.tf <<'EOF'
 provider "aws" {
-  region = "${AWS_REGION}"
+  region = "${env.AWS_REGION}"
 }
 
 # ------------------ VPC ------------------
@@ -36,7 +36,7 @@ resource "aws_vpc" "acit_vpc" {
   enable_dns_hostnames = true
   enable_dns_support   = true
   tags = {
-    Name = "${TF_VAR_vpc_name}"
+    Name = "${env.TF_VAR_vpc_name}"
   }
 }
 
@@ -45,38 +45,38 @@ resource "aws_vpc" "acit_vpc" {
 resource "aws_subnet" "public_1" {
   vpc_id                  = aws_vpc.acit_vpc.id
   cidr_block              = "10.100.1.0/24"
-  availability_zone       = "${AWS_REGION}a"
+  availability_zone       = "${env.AWS_REGION}a"
   map_public_ip_on_launch = true
-  tags = { Name = "${TF_VAR_vpc_name}-public-1" }
+  tags = { Name = "${env.TF_VAR_vpc_name}-public-1" }
 }
 
 resource "aws_subnet" "public_2" {
   vpc_id                  = aws_vpc.acit_vpc.id
   cidr_block              = "10.100.2.0/24"
-  availability_zone       = "${AWS_REGION}b"
+  availability_zone       = "${env.AWS_REGION}b"
   map_public_ip_on_launch = true
-  tags = { Name = "${TF_VAR_vpc_name}-public-2" }
+  tags = { Name = "${env.TF_VAR_vpc_name}-public-2" }
 }
 
 # Private Subnets
 resource "aws_subnet" "private_1" {
   vpc_id            = aws_vpc.acit_vpc.id
   cidr_block        = "10.100.3.0/24"
-  availability_zone = "${AWS_REGION}a"
-  tags = { Name = "${TF_VAR_vpc_name}-private-1" }
+  availability_zone = "${env.AWS_REGION}a"
+  tags = { Name = "${env.TF_VAR_vpc_name}-private-1" }
 }
 
 resource "aws_subnet" "private_2" {
   vpc_id            = aws_vpc.acit_vpc.id
   cidr_block        = "10.100.4.0/24"
-  availability_zone = "${AWS_REGION}b"
-  tags = { Name = "${TF_VAR_vpc_name}-private-2" }
+  availability_zone = "${env.AWS_REGION}b"
+  tags = { Name = "${env.TF_VAR_vpc_name}-private-2" }
 }
 
 # ------------------ Internet Gateway ------------------
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.acit_vpc.id
-  tags = { Name = "${TF_VAR_vpc_name}-igw" }
+  tags = { Name = "${env.TF_VAR_vpc_name}-igw" }
 }
 
 # ------------------ Route Tables ------------------
@@ -87,13 +87,13 @@ resource "aws_route_table" "public_rt" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
-  tags = { Name = "${TF_VAR_vpc_name}-public-rt" }
+  tags = { Name = "${env.TF_VAR_vpc_name}-public-rt" }
 }
 
 # Private Route Table
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.acit_vpc.id
-  tags = { Name = "${TF_VAR_vpc_name}-private-rt" }
+  tags = { Name = "${env.TF_VAR_vpc_name}-private-rt" }
 }
 
 # ------------------ Route Table Associations ------------------
