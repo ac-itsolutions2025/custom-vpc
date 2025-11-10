@@ -11,11 +11,11 @@ pipeline {
         stage('Setup Terraform') {
             steps {
                 sh '''
-                    sudo apt-get update -y
-                    sudo apt-get install -y unzip wget
+                    apt-get update -y
+                    apt-get install -y unzip wget
                     wget https://releases.hashicorp.com/terraform/1.6.5/terraform_1.6.5_linux_amd64.zip
                     unzip terraform_1.6.5_linux_amd64.zip
-                    sudo mv terraform /usr/local/bin/
+                    mv terraform /usr/local/bin/
                     terraform -version
                 '''
             }
