@@ -21,7 +21,7 @@ pipeline {
             }
         }
 
-        stage('Init Terraform') {
+        stage('Init Terraform Config') {
             steps {
                 sh '''
                     mkdir -p ${TF_DIR}
@@ -29,7 +29,93 @@ pipeline {
 provider "aws" {
   region = "${AWS_REGION}"
 }
-# (rest of Terraform code here)
+
+# ------------------ VPC ------------------
+resource "aws_vpc" "acit_vpc" {
+  cidr_block           = "10.100.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+  tags = {
+    Name = "${TF_VAR_vpc_name}"
+  }
+}
+
+# ------------------ Subnets ------------------
+# Public Subnets
+resource "aws_subnet" "public_1" {
+  vpc_id                  = aws_vpc.acit_vpc.id
+  cidr_block              = "10.100.1.0/24"
+  availability_zone       = "${AWS_REGION}a"
+  map_public_ip_on_launch = true
+  tags = { Name = "${TF_VAR_vpc_name}-public-1" }
+}
+
+resource "aws_subnet" "public_2" {
+  vpc_id                  = aws_vpc.acit_vpc.id
+  cidr_block              = "10.100.2.0/24"
+  availability_zone       = "${AWS_REGION}b"
+  map_public_ip_on_launch = true
+  tags = { Name = "${TF_VAR_vpc_name}-public-2" }
+}
+
+# Private Subnets
+resource "aws_subnet" "private_1" {
+  vpc_id            = aws_vpc.acit_vpc.id
+  cidr_block        = "10.100.3.0/24"
+  availability_zone = "${AWS_REGION}a"
+  tags = { Name = "${TF_VAR_vpc_name}-private-1" }
+}
+
+resource "aws_subnet" "private_2" {
+  vpc_id            = aws_vpc.acit_vpc.id
+  cidr_block        = "10.100.4.0/24"
+  availability_zone = "${AWS_REGION}b"
+  tags = { Name = "${TF_VAR_vpc_name}-private-2" }
+}
+
+# ------------------ Internet Gateway ------------------
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.acit_vpc.id
+  tags = { Name = "${TF_VAR_vpc_name}-igw" }
+}
+
+# ------------------ Route Tables ------------------
+# Public Route Table
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.acit_vpc.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = { Name = "${TF_VAR_vpc_name}-public-rt" }
+}
+
+# Private Route Table
+resource "aws_route_table" "private_rt" {
+  vpc_id = aws_vpc.acit_vpc.id
+  tags = { Name = "${TF_VAR_vpc_name}-private-rt" }
+}
+
+# ------------------ Route Table Associations ------------------
+resource "aws_route_table_association" "public_assoc_1" {
+  subnet_id      = aws_subnet.public_1.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+resource "aws_route_table_association" "public_assoc_2" {
+  subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+resource "aws_route_table_association" "private_assoc_1" {
+  subnet_id      = aws_subnet.private_1.id
+  route_table_id = aws_route_table.private_rt.id
+}
+
+resource "aws_route_table_association" "private_assoc_2" {
+  subnet_id      = aws_subnet.private_2.id
+  route_table_id = aws_route_table.private_rt.id
+}
 EOF
                 '''
             }
@@ -55,7 +141,7 @@ EOF
 
         stage('Terraform Apply') {
             steps {
-                input message: 'Approve to create VPC?'
+                input message: 'Approve to create VPC and subnets?'
                 sh '''
                     cd ${TF_DIR}
                     terraform apply -auto-approve tfplan
@@ -66,7 +152,7 @@ EOF
 
     post {
         success {
-            echo "✅ Custom VPC 'acit-vpc' created successfully!"
+            echo "✅ Custom VPC '${TF_VAR_vpc_name}' created successfully with subnets, route tables, and IGW!"
         }
         failure {
             echo "❌ VPC creation failed!"
